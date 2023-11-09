@@ -1,4 +1,4 @@
-# SPOT 
+# SPatial Omnibus Test (SPOT)
 
 ## Description
 
