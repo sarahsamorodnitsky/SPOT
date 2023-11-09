@@ -1,4 +1,47 @@
-build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K.diff, nlarge, print.progress = TRUE) {
+#' build_K_matrix
+#'
+#' Construct a matrix of dimension \eqn{n \times P} where \eqn{n} is the number
+#' of samples and \eqn{P} is the number of radii under consideration of the
+#' values of Ripley's K or Besag's L evaluated at each radius for each sample.
+#'
+#' This function is primarily used within the \code{SPOT} function.
+#'
+#' @param data The dataset of single cell spatial data. Must include column names
+#' PID, id, x, y, and type if \code{marked}. PID corresponds to the patient IDs
+#' which should be replicated across ROIs for each patient. id corresponds to the
+#' image ID within a patient. x and y give the coordinates of each cell. type (if given)
+#' is a cell type label.
+#' @param radii Vector of length \eqn{P} giving the radii at which to evaluate the
+#' spatial summary measure. The first value must be zero.
+#' @param use.K Boolean. If \code{TRUE}, calculates Ripley's K for each radius and
+#' sample. If \code{FALSE}, calculates Besag's L for each radius and sample.
+#' @param homogeneous Boolean. If \code{TRUE}, calculates the homogeneous versions of
+#' Ripley's K or Besag's L. If \code{FALSE}, calculates the inhomogeneous versions of
+#' these summaries.
+#' @param marked Boolean. If \code{TRUE}, subsets the data to consider only cells with the
+#' labels given in the \code{cell.type} parameter. If \code{FALSE}, considers all detected cells
+#' included in \code{data}.
+#' @param cell.type The cell type labels to consider. Can be one string, e.g. \code{cell.type = "CD4 T cell"}, or
+#' a vector of two cell types, e.g. \code{cell.type = c("CD4 T cell", "CD8 T cell")}. If \code{!marked}, leave
+#' this parameter as \code{NULL}.
+#' @param K.diff Boolean. If \code{TRUE}, returns the difference between the empirical and theoretical values of
+#' Ripley's K or Besag's L. If \code{FALSE}, returns the empirical value of the spatial summary.
+#' @param nlarge Parameter for the \code{Kest} and \code{Lest} function for efficiency. If there are more cells
+#' than \code{nlarge}, will apply a border correction for edge effects instead of the isotropic edge correction.
+#' Default is 10000.
+#' @param print.progress Boolean. Should progress in calculating the spatial summary across samples be printed?
+#' If \code{TRUE}, prints a progress bar.
+#'
+#' @return Returns two objects: \code{Kr} and \code{Kr.df}. \code{Kr} is a list of length \eqn{n} containing
+#' the \eqn{P} spatial summary values at each radius. \code{Kr.df} is the data.frame containing the spatial summaries
+#' in \code{Kr} but includes the PIDs and image ids.
+#'
+#' @importFrom magrittr %>%
+#' @importFrom tidyselect all_of
+#' @importFrom dplyr across
+#'
+#' @export
+build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K.diff, nlarge = 10000, print.progress = TRUE) {
 
   # Summarize the images within each PID
   pids.images <- data %>%
@@ -15,7 +58,7 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
   # Iterate through the images
   for (i in 1:length(image.ids)) {
     # Print out the progress
-    if (print.progress) progress(i/(length(image.ids)/100))
+    if (print.progress) svMisc::progress(i/(length(image.ids)/100))
 
     # Save the current image ID
     id.i <- image.ids[i]
@@ -29,22 +72,22 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
         dplyr::select(x, y)
 
       # Convex hull for image
-      w <- convexhull.xy(data.xy$x, data.xy$y)
+      w <- spatstat::convexhull.xy(data.xy$x, data.xy$y)
 
       # Convert to a point process
-      data.ppp <- as.ppp(data.xy, W=w)
+      data.ppp <- spatstat::as.ppp(data.xy, W=w)
 
       # Apply Ripley's K/Besag's L
       if (homogeneous) {
 
         # Ripley's K
         if (use.K) {
-          Ki <- Ki.hom <- Kest(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
+          Ki <- Ki.hom <- spatstat::Kest(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
         }
 
         # Besag's L
         if (!use.K) {
-          Ki <- Ki.hom <- Lest(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
+          Ki <- Ki.hom <- spatstat::Lest(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
         }
       }
 
@@ -52,12 +95,12 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 
         # Ripley's K
         if (use.K) {
-          Ki <- Ki.inhom <- Kinhom(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
+          Ki <- Ki.inhom <- spatstat::Kinhom(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
         }
 
         # Besag's L
         if (!use.K) {
-          Ki <- Li.inhom <- Linhom(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
+          Ki <- Li.inhom <- spatstat::Linhom(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
         }
       }
     }
@@ -71,8 +114,8 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
       data.types$type <- as.factor(data.types$type)
 
       # Convert to a ppp
-      w <- convexhull.xy(data.types$x, data.types$y)
-      data.types.ppp <- as.ppp(data.types, W = w, marks = data.types$type)
+      w <- spatstat::convexhull.xy(data.types$x, data.types$y)
+      data.types.ppp <- spatstat::as.ppp(data.types, W = w, marks = data.types$type)
 
       # Subset to specific cell type
       data.types.ppp.subset <- subset(data.types.ppp, marks %in% cell.type)
@@ -87,11 +130,11 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
         if (use.K) {
 
           if (homogeneous) {
-            Ki <- Ki.type <- Kest(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
+            Ki <- Ki.type <- spatstat::Kest(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
           }
 
           if (!homogeneous) {
-            Ki <- Ki.type <-  Kinhom(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
+            Ki <- Ki.type <-  spatstat::Kinhom(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
           }
         }
 
@@ -99,11 +142,11 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
         if (!use.K) {
 
           if (homogeneous) {
-            Ki <- Ki.type <-  Lest(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
+            Ki <- Ki.type <-  spatstat::Lest(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
           }
 
           if (!homogeneous) {
-            Ki <- Ki.type <-  Linhom(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
+            Ki <- Ki.type <-  spatstat::Linhom(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
           }
 
         }
@@ -120,12 +163,12 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
           if (use.K) {
 
             if (homogeneous) {
-              Ki <- Ki.type <-  Kcross(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
+              Ki <- Ki.type <-  spatstat::Kcross(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
                                        r = radii, nlarge = nlarge, correction = "isotropic")
             }
 
             if (!homogeneous) {
-              Ki <- Ki.type <-  Kcross.inhom(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
+              Ki <- Ki.type <-  spatstat::Kcross.inhom(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
                                              r = radii, nlarge = nlarge, correction = "isotropic")
             }
           }
@@ -133,12 +176,12 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
           if (!use.K) {
 
             if (homogeneous) {
-              Ki <- Ki.type <-  Lcross(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
+              Ki <- Ki.type <-  spatstat::Lcross(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
                                        r = radii, nlarge = nlarge, correction = "isotropic")
             }
 
             if (!homogeneous) {
-              Ki <- Ki.type <-  Lcross.inhom(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
+              Ki <- Ki.type <-  spatstat::Lcross.inhom(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
                                              r = radii, nlarge = nlarge, correction = "isotropic")
             }
           }
@@ -177,11 +220,76 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 }
 
 
+#' SPatial Omnibus Test (SPOT)
+#'
+#' Perform a SPatial Omnibus Test (SPOT) to relate a spatial summary of each
+#' image to patient outcomes.
+#'
+#' @param data The dataset of single cell spatial data. Must include column names
+#' PID, id, x, y, and type if \code{marked}. PID corresponds to the patient IDs
+#' which should be replicated across ROIs for each patient. id corresponds to the
+#' image ID within a patient. x and y give the coordinates of each cell. type (if given)
+#' is a cell type label. Should also contain an outcome column which will be specified in
+#' the \code{outcome} parameter.
+#' @param radii Vector of length \eqn{P} giving the radii at which to evaluate the
+#' spatial summary measure. The first value must be zero.
+#' @param outcome String specifying the column name in \code{data} containing the outcome.
+#' Must be a survival outcome, a binary outcome, or a continuous outcome.
+#' @param censor String specifying the column name in \code{data} containing the censoring indicator.
+#' Leave this parameter \code{NULL} if the outcome is not survival.
+#' @param model.type String specifying which predictive model to use. The options are: "survival" for a
+#' Cox proportional hazards model, or "logistic" for a logistic regression model, or "linear" for a
+#' standard linear model.
+#' @param use.K Boolean. If \code{TRUE}, calculates Ripley's K for each radius and
+#' sample. If \code{FALSE}, calculates Besag's L for each radius and sample.
+#' @param homogeneous Boolean. If \code{TRUE}, calculates the homogeneous versions of
+#' Ripley's K or Besag's L. If \code{FALSE}, calculates the inhomogeneous versions of
+#' these summaries.
+#' @param adjustments String(s) specifying the column names in \code{data} of covariates
+#'  to adjust for in the predictive model. May be left \code{NULL}.
+#' @param marked Boolean. If \code{TRUE}, subsets the data to consider only cells with the
+#' labels given in the \code{cell.type} parameter. If \code{FALSE}, considers all detected cells
+#' included in \code{data}.
+#' @param cell.type The cell type labels to consider. Can be one string, e.g. \code{cell.type = "CD4 T cell"}, or
+#' a vector of two cell types, e.g. \code{cell.type = c("CD4 T cell", "CD8 T cell")}. If \code{!marked}, leave
+#' this parameter as \code{NULL}.
+#' @param K.diff Boolean. If \code{TRUE}, returns the difference between the empirical and theoretical values of
+#' Ripley's K or Besag's L. If \code{FALSE}, returns the empirical value of the spatial summary.
+#' @param pick.roi String specifying how to select among ROIs if multiple are available per sample. Default is \code{all}
+#' which should be used if only one image is available per person. If multiple are available, specify this parameter
+#' as \code{"average"} to average the spatial summaries across ROIs within each radius or \code{random} to randomly select
+#' an ROI for each sample.
+#' @param seed Specify a seed to use if \code{pick.roi = "random"}.
+#' @param nlarge Parameter for the \code{Kest} and \code{Lest} function for efficiency. If there are more cells
+#' than \code{nlarge}, will apply a border correction for edge effects instead of the isotropic edge correction.
+#' Default is 10000.
+#' @param prop.nonzero How many spatial summaries should be non-zero in order for the corresponding radius to be
+#' included in the predictive model? Specify as a proportion of the total number of samples. Default is 0.2.
+#' @param print.progress Boolean. Should progress in calculating the spatial summary across samples be printed?
+#' If \code{TRUE}, prints a progress bar.
+#'
+#' @return Returns a list with the following elements:
+#' \item{overall.pval}{The overall p-value resulting from the Cauchy combination test characterizing the
+#' strength of association between the spatial summary and the outcome across radii.}
+#' \item{Kr.df}{The matrix of spatial summaries across samples and radii. If multiple ROIs were person and \code{pick.roi = "average" or "random"},
+#' returns only the averaged spatial summaries or the summaries for the randomly-selected ROIs.}
+#' \item{pval.df}{P-values for the association between the spatial summary at each radius and the outcome. }
+#' \item{pids.images}{The PIDs and the corresponding image IDs within each patient. }
+#' \item{images.missing.cells}{How many images were missing cells altogether?}
+#' \item{n.images.association}{How many images were used in the predictive model?}
+#' \item{arguments}{Returns the arguments specified in the function call.}
+#'
+#' @importFrom dplyr n
+#' @importFrom tidyselect all_of
+#' @importFrom dplyr across
+#' @importFrom survival coxph.control
+#' @importFrom magrittr %>%
+#'
+#' @export
 spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
                                  homogeneous = TRUE, adjustments = NULL, marked = FALSE,
                                  cell.type = NULL, K.diff = FALSE, pick.roi = "all", seed = 12345,
-                                 nlarge = 10000, prop.nonzero = 0.2, print.progress = TRUE,
-                                 use.max.radius.only = FALSE) {
+                                 nlarge = 10000, prop.nonzero = 0.2, print.progress = TRUE) {
 
   # Save the arguments
   arguments <- match.call()
@@ -193,7 +301,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
   # Summarize the images within each PID
   pids.images <- data %>%
     dplyr::select(PID, id) %>%
-    distinct()
+    dplyr::distinct()
 
   # Save the unique image ids
   image.ids <- pids.images$id
@@ -221,7 +329,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
   images.missing.cells <- sum(rows.missing.cells)
 
   # Filter to the number of images remaining
-  pids.images <- pids.images %>% filter(id %in% Kr.df$id)
+  pids.images <- pids.images %>% dplyr::filter(id %in% Kr.df$id)
 
   if (pick.roi != "all") {
 
@@ -242,10 +350,10 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
       selected.ROI <- Kr.df$selected.ROI
 
       # Select just the selected ROIs again
-      Kr.df <- Kr.df %>% filter(selected.ROI == 1)
+      Kr.df <- Kr.df %>% dplyr::filter(selected.ROI == 1)
 
       # Filter to the number of images remaining
-      pids.images <- pids.images %>% filter(id %in% Kr.df$id)
+      pids.images <- pids.images %>% dplyr::filter(id %in% Kr.df$id)
 
     }
 
@@ -295,17 +403,6 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
   # if enough samples are available
   # -------------------------------------
 
-  # Would we like to use just one radius?
-  if (use.max.radius.only) {
-    if (paste0("radius.", max(radii)) %in% radii.to.save) {
-      radii.to.save <- paste0("radius.", max(radii))
-    }
-
-    if (!((paste0("radius.", max(radii)) %in% radii.to.save))) {
-      stop(paste0("Maximum radius was removed because fewer than ", prop.nonzero*100, "% of K(r) or L(r) were non-zero at this radius."))
-    }
-  }
-
   # Test association for each radius (multiple ROIs per person)
   radii.to.save.numeric <- as.numeric(sapply(strsplit(radii.to.save, "radius."), function(i) i[2]))
   pval.df <- data.frame(radius = radii.to.save.numeric, coef = NA, pval = NA)
@@ -333,7 +430,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
       # Add in the outcome data
       outcome.data <- dplyr::right_join(data %>%
                                           dplyr::select(all_of(c("PID", outcome, censor, adjustments))) %>%
-                                          distinct(),
+                                          dplyr::distinct(),
                                         Kr.subset,
                                         by = "PID")
 
@@ -342,7 +439,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
         model.equation <- reformulate(c("ripley", adjustments), "Surv(get(outcome), get(censor))")
 
         # Run the model
-        res <- coxph(model.equation, data = outcome.data, control = coxph.control(iter.max = 100))
+        res <- survival::coxph(model.equation, data = outcome.data, control = coxph.control(iter.max = 100))
       }
 
       if (model.type == "logistic") {
@@ -353,40 +450,6 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
         res <- glm(model.equation, family = binomial(), data = outcome.data)
       }
 
-      # Were random effects used?
-      # used.marginal.model <- FALSE
-
-      # # Association testing
-      # if (model.type == "survival") {
-      #
-      #   # Fit a Cox PH model without random effects
-      #   if (!any(duplicated(pids.images$PID))) {
-      #
-      #     # Save the model equation
-      #     model.equation <- reformulate(c("ripley", adjustments), "Surv(get(outcome), get(censor))")
-      #
-      #     # Run the model
-      #     coxph.control(iter.max = 100)
-      #     res <- coxph(model.equation, data = outcome.data)
-      #   }
-      #
-      #   # Fit a Cox PH model with random effects
-      #   if (any(duplicated(pids.images$PID))) {
-      #
-      #     # Change value of used.random.effects
-      #     used.marginal.model <- TRUE
-      #
-      #     # Save the model equation
-      #     # model.equation <- reformulate(c("ripley", adjustments, "(1|PID)"), "Surv(get(outcome), get(censor))")
-      #     model.equation <- reformulate(c("ripley", adjustments), "Surv(get(outcome), get(censor))")
-      #
-      #     # Run the model
-      #     # coxme.control(iter.max = 100)
-      #     # res <- coxme(model.equation, data = outcome.data)
-      #     res <- coxph(model.equation, data = outcome.data, cluster = PID)
-      #   }
-      # }
-      #
       # Save the results
       coef <- summary(res)$coefficients
       row.ind <- rownames(coef) == "ripley"
@@ -400,31 +463,22 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
   pval.df <- pval.df[!is.na(pval.df$pval),]
 
   # Initialize the overall p-values at NA
-  overall.pval <- overall.pval.rounding <- NA
+  overall.pval <- NA
 
   # Combine results with and without rounding
   if (!is.logical(pval.df$pval)) {
     pval.df$pval.round <- pval.df$pval
-    pval.df$pval.round[pval.df$pval >= 0.5] <- plyr::round_any(pval.df$pval[pval.df$pval >= 0.5], 0.1, f = floor)
 
     # Combine results (no rounding)
     overall.pval <- ACAT::ACAT(pval.df$pval)
-    overall.pval.rounding <- ACAT::ACAT(pval.df$pval.round)
   }
 
   # Return
   list(overall.pval = overall.pval,
-       overall.pval.rounding = overall.pval.rounding,
        Kr.df = Kr.df,
        pval.df = pval.df,
        pids.images = pids.images,
        images.missing.cells = images.missing.cells,
        n.images.association = n.images.association,
-       radii = radii,
-       adjustments = adjustments,
-       homogeneous = homogeneous,
-       marked = marked,
-       cell.type = cell.type,
-       seed = seed,
        arguments = arguments)
 }
