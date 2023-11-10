@@ -10,6 +10,7 @@ across images, and calculates an omnibus p-value describing the strength of asso
 To install SPOT, run the following:
 ```{r}
 devtools::install_github("sarahsamorodnitsky/SPOT")
+library(SPOT)
 ```
 This package requires the following dependencies: spatstat, survival, ACAT, dplyr, tidyselect, svMisc. 
 
