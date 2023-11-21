@@ -40,6 +40,11 @@ ovarian_df <- ovarian_df %>%
 # Remove any cell types with NA labels (corresponding to other cells)
 ovarian_df <- ovarian_df %>% filter(!is.na(type))
 
+# Change colnames
+# According to VectraPolarisData vignette, sample_id is the image identifier, also subject id for the ovarian data
+# Link: https://bioconductor.org/packages/devel/data/experiment/vignettes/VectraPolarisData/inst/doc/VectraPolarisData.html#52_HumanOvarianCancerVP
+colnames(ovarian_df)[colnames(ovarian_df) == "sample_id"] <- "id"
+
 # Add a PID column
 ovarian_df$PID <- ovarian_df$id
 
