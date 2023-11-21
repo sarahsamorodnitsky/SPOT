@@ -72,10 +72,10 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
         dplyr::select(x, y)
 
       # Convex hull for image
-      w <- spatstat::convexhull.xy(data.xy$x, data.xy$y)
+      w <- spatstat.geom::convexhull.xy(data.xy$x, data.xy$y)
 
       # Convert to a point process
-      data.ppp <- spatstat::as.ppp(data.xy, W=w)
+      data.ppp <- spatstat.geom::as.ppp(data.xy, W=w)
 
       # Apply Ripley's K/Besag's L
       if (homogeneous) {
@@ -114,8 +114,8 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
       data.types$type <- as.factor(data.types$type)
 
       # Convert to a ppp
-      w <- spatstat::convexhull.xy(data.types$x, data.types$y)
-      data.types.ppp <- spatstat::as.ppp(data.types, W = w, marks = data.types$type)
+      w <- spatstat.geom::convexhull.xy(data.types$x, data.types$y)
+      data.types.ppp <- spatstat.geom::as.ppp(data.types, W = w, marks = data.types$type)
 
       # Subset to specific cell type
       data.types.ppp.subset <- subset(data.types.ppp, marks %in% cell.type)
@@ -163,12 +163,12 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
           if (use.K) {
 
             if (homogeneous) {
-              Ki <- Ki.type <-  spatstat::Kcross(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
+              Ki <- Ki.type <-  spatstat.explore::Kcross(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
                                        r = radii, nlarge = nlarge, correction = "isotropic")
             }
 
             if (!homogeneous) {
-              Ki <- Ki.type <-  spatstat::Kcross.inhom(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
+              Ki <- Ki.type <-  spatstat.explore::Kcross.inhom(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
                                              r = radii, nlarge = nlarge, correction = "isotropic")
             }
           }
@@ -176,12 +176,12 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
           if (!use.K) {
 
             if (homogeneous) {
-              Ki <- Ki.type <-  spatstat::Lcross(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
+              Ki <- Ki.type <-  spatstat.explore::Lcross(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
                                        r = radii, nlarge = nlarge, correction = "isotropic")
             }
 
             if (!homogeneous) {
-              Ki <- Ki.type <-  spatstat::Lcross.inhom(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
+              Ki <- Ki.type <-  spatstat.explore::Lcross.inhom(data.types.ppp.subset, i = cell.type[1], j = cell.type[2],
                                              r = radii, nlarge = nlarge, correction = "isotropic")
             }
           }
@@ -433,6 +433,14 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
                                           dplyr::distinct(),
                                         Kr.subset,
                                         by = "PID")
+
+      if (model.type == "linear") {
+        # Save the model equation
+        model.equation <- reformulate(c("ripley", adjustments), "get(outcome)")
+
+        # Run the model
+        res <- lm(model.equation, data = outcome.data)
+      }
 
       if (model.type == "survival") {
         # Save the model equation
