@@ -82,12 +82,12 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 
         # Ripley's K
         if (use.K) {
-          Ki <- Ki.hom <- spatstat::Kest(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
+          Ki <- Ki.hom <- spatstat.explore::Kest(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
         }
 
         # Besag's L
         if (!use.K) {
-          Ki <- Ki.hom <- spatstat::Lest(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
+          Ki <- Ki.hom <- spatstat.explore::Lest(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
         }
       }
 
@@ -95,12 +95,12 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 
         # Ripley's K
         if (use.K) {
-          Ki <- Ki.inhom <- spatstat::Kinhom(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
+          Ki <- Ki.inhom <- spatstat.explore::Kinhom(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
         }
 
         # Besag's L
         if (!use.K) {
-          Ki <- Li.inhom <- spatstat::Linhom(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
+          Ki <- Li.inhom <- spatstat.explore::Linhom(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
         }
       }
     }
