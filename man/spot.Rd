@@ -69,8 +69,12 @@ Ripley's K or Besag's L. If \code{FALSE}, returns the empirical value of the spa
 \item{pick.roi}{String specifying how to select among ROIs if multiple are available per sample. Default is \code{all}
 which should be used if only one image is available per person. If multiple are available, specify this parameter
 as \code{"average"} to average the spatial summaries across ROIs within each radius, \code{random} to randomly select
-an ROI for each sample, or \code{custom} to specify a custom user-provided function to aggregate spatial summaries.
-If \code{pick.roi = custom}, user must supply function using argument \code{agg.func}.}
+an ROI for each sample, \code{baddeley} to use the Baddeley weighted mean from the \code{spagg} package,
+\code{landau} to use the Landau weighted mean from the \code{spagg} package,
+\code{diggle} to use the Diggle weighted mean from the \code{spagg} package, or \code{custom} to
+specify a custom user-provided function to aggregate spatial summaries.
+If \code{pick.roi = custom}, user must supply function using argument \code{agg.func}.
+For more information on \code{spagg} aggregations, see \code{?baddeley}, \code{?diggle}, \code{?landau}}
 
 \item{agg.func}{If \code{pick.roi = custom}, user must supply a function to aggregate spatial summaries across
 multiple ROIs.}
