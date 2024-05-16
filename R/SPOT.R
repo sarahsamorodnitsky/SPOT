@@ -318,8 +318,10 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 #' @import spagg
 #' @importFrom dplyr n
 #' @importFrom dplyr across
+#' @importFrom dplyr vars
 #' @importFrom tidyselect all_of
 #' @importFrom tidyselect everything
+#' @importFrom tidyselect contains
 #' @importFrom dplyr across
 #' @importFrom survival coxph.control
 #' @importFrom magrittr %>%
@@ -402,7 +404,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
       Kr.df <- Kr.df %>%
         dplyr::select(-id) %>%
         dplyr::group_by(PID) %>%
-        dplyr::summarise_at(vars(contains("radius")), list(~mean(.x)))
+        dplyr::summarise_at(dplyr::vars(tidyselect::contains("radius")), list(~mean(.x)))
 
     }
 
@@ -412,7 +414,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
       Kr.df <- Kr.df %>%
         dplyr::select(-id) %>%
         dplyr::group_by(PID) %>%
-        dplyr::summarise_at(vars(contains("radius")), list(~spagg::baddeley.avg(K.vec = .x, n.vec = npoints)))
+        dplyr::summarise_at(dplyr::vars(tidyselect::contains("radius")), list(~spagg::baddeley.avg(K.vec = .x, n.vec = npoints)))
 
     }
 
@@ -422,7 +424,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
       Kr.df <- Kr.df %>%
         dplyr::select(-id) %>%
         dplyr::group_by(PID) %>%
-        dplyr::summarise_at(vars(contains("radius")), list(~spagg::diggle.avg(K.vec = .x, n.vec = npoints)))
+        dplyr::summarise_at(dplyr::vars(tidyselect::contains("radius")), list(~spagg::diggle.avg(K.vec = .x, n.vec = npoints)))
 
     }
 
@@ -432,7 +434,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
       Kr.df <- Kr.df %>%
         dplyr::select(-id) %>%
         dplyr::group_by(PID) %>%
-        dplyr::summarise_at(vars(contains("radius")), list(~spagg::landau.avg(K.vec = .x, area.vec = area, n.vec = npoints)))
+        dplyr::summarise_at(dplyr::vars(tidyselect::contains("radius")), list(~spagg::landau.avg(K.vec = .x, area.vec = area, n.vec = npoints)))
 
     }
 
@@ -444,7 +446,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
       Kr.df <- Kr.df %>%
         dplyr::select(-id) %>%
         dplyr::group_by(PID) %>%
-        dplyr::summarise_at(vars(contains("radius")), list(~agg.func(.x)))
+        dplyr::summarise_at(dplyr::vars(tidyselect::contains("radius")), list(~agg.func(.x)))
 
     }
   }

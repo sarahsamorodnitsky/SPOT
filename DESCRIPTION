@@ -18,6 +18,7 @@ Imports:
     ACAT,
     dplyr,
     magrittr,
+    spagg,
     spatstat,
     spatstat.explore,
     spatstat.geom,
