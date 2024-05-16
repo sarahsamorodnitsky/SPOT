@@ -17,6 +17,7 @@ spot(
   cell.type = NULL,
   K.diff = FALSE,
   pick.roi = "all",
+  agg.func = NULL,
   seed = 12345,
   nlarge = 10000,
   prop.nonzero = 0.2,
@@ -67,8 +68,12 @@ Ripley's K or Besag's L. If \code{FALSE}, returns the empirical value of the spa
 
 \item{pick.roi}{String specifying how to select among ROIs if multiple are available per sample. Default is \code{all}
 which should be used if only one image is available per person. If multiple are available, specify this parameter
-as \code{"average"} to average the spatial summaries across ROIs within each radius or \code{random} to randomly select
-an ROI for each sample.}
+as \code{"average"} to average the spatial summaries across ROIs within each radius, \code{random} to randomly select
+an ROI for each sample, or \code{custom} to specify a custom user-provided function to aggregate spatial summaries.
+If \code{pick.roi = custom}, user must supply function using argument \code{agg.func}.}
+
+\item{agg.func}{If \code{pick.roi = custom}, user must supply a function to aggregate spatial summaries across
+multiple ROIs.}
 
 \item{seed}{Specify a seed to use if \code{pick.roi = "random"}.}
 

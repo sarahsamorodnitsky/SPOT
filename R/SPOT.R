@@ -29,6 +29,8 @@
 #' @param nlarge Parameter for the \code{Kest} and \code{Lest} function for efficiency. If there are more cells
 #' than \code{nlarge}, will apply a border correction for edge effects instead of the isotropic edge correction.
 #' Default is 10000.
+#' @param return.meta Boolean. Should meta-information (the area of the window and number of cells) be returned
+#' for each spatial summary computed?
 #' @param print.progress Boolean. Should progress in calculating the spatial summary across samples be printed?
 #' If \code{TRUE}, prints a progress bar.
 #'
@@ -38,12 +40,13 @@
 #'
 #' @import spatstat
 #' @import utils
+#' @import spagg
 #' @importFrom magrittr %>%
 #' @importFrom tidyselect all_of
 #' @importFrom dplyr across
 #'
 #' @export
-build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K.diff, nlarge = 10000, print.progress = TRUE) {
+build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K.diff, nlarge = 10000, return.meta = TRUE, print.progress = TRUE) {
 
   # Summarize the images within each PID
   pids.images <- data %>%
@@ -54,7 +57,7 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
   image.ids <- pids.images$id
 
   # Initialize list for each image
-  Kr <- lapply(1:length(image.ids), function(i) list())
+  Kr <- meta.data <- lapply(1:length(image.ids), function(i) list())
   names(Kr) <- image.ids
 
   # Iterate through the images
@@ -104,6 +107,12 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
         if (!use.K) {
           Ki <- Li.inhom <- spatstat.explore::Linhom(data.ppp, r = radii, nlarge = nlarge, correction = "isotropic")
         }
+      }
+
+      # If returning meta.data, calculate that here:
+      if (return.meta) {
+        meta.i <- c(spatstat.geom::area(w), spatstat.geom::npoints(data.ppp))
+        names(meta.i) <- c("area", "npoints")
       }
     }
 
@@ -195,6 +204,12 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
           Ki <- Ki.type <- list(iso = rep(NA, length(radii)), theo = rep(NA, length(radii)))
         }
       }
+
+      # If returning meta.data, calculate that here:
+      if (return.meta) {
+        meta.i <- c(spatstat.geom::area(w), spatstat.geom::npoints(data.types.ppp.subset))
+        names(meta.i) <- c("area", "npoints")
+      }
     }
 
     # Save the result
@@ -204,6 +219,11 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 
     if (K.diff) {
       Kr[[i]] <- Ki$iso - Ki$theo
+    }
+
+    # Save the metadata
+    if (return.meta) {
+      meta.data[[i]] <- meta.i
     }
   }
 
@@ -215,6 +235,15 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 
   # Combine with PIDs.timepoint
   Kr.df <- cbind.data.frame(pids.images, Kr.df)
+
+  if (return.meta) {
+    meta.data.df <- do.call(rbind.data.frame, meta.data)
+    colnames(meta.data.df) <- c("area", "npoints")
+    meta.data.df <- cbind.data.frame(pids.images, meta.data.df)
+
+    # Merge with Kr.df
+    Kr.df <- merge(x = Kr.df, y = meta.data.df, by = c("PID", "id"))
+  }
 
   # Return the results
   list(Kr = Kr, Kr.df = Kr.df)
@@ -259,8 +288,11 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 #' Ripley's K or Besag's L. If \code{FALSE}, returns the empirical value of the spatial summary.
 #' @param pick.roi String specifying how to select among ROIs if multiple are available per sample. Default is \code{all}
 #' which should be used if only one image is available per person. If multiple are available, specify this parameter
-#' as \code{"average"} to average the spatial summaries across ROIs within each radius or \code{random} to randomly select
-#' an ROI for each sample.
+#' as \code{"average"} to average the spatial summaries across ROIs within each radius, \code{random} to randomly select
+#' an ROI for each sample, or \code{custom} to specify a custom user-provided function to aggregate spatial summaries.
+#' If \code{pick.roi = custom}, user must supply function using argument \code{agg.func}.
+#' @param agg.func If \code{pick.roi = custom}, user must supply a function to aggregate spatial summaries across
+#' multiple ROIs.
 #' @param seed Specify a seed to use if \code{pick.roi = "random"}.
 #' @param nlarge Parameter for the \code{Kest} and \code{Lest} function for efficiency. If there are more cells
 #' than \code{nlarge}, will apply a border correction for edge effects instead of the isotropic edge correction.
@@ -283,6 +315,7 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 #'
 #' @import spatstat
 #' @import utils
+#' @import spagg
 #' @importFrom dplyr n
 #' @importFrom dplyr across
 #' @importFrom tidyselect all_of
@@ -293,9 +326,9 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 #'
 #' @export
 spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
-                                 homogeneous = TRUE, adjustments = NULL, marked = FALSE,
-                                 cell.type = NULL, K.diff = FALSE, pick.roi = "all", seed = 12345,
-                                 nlarge = 10000, prop.nonzero = 0.2, print.progress = TRUE) {
+                 homogeneous = TRUE, adjustments = NULL, marked = FALSE,
+                 cell.type = NULL, K.diff = FALSE, pick.roi = "all", agg.func = NULL,
+                 seed = 12345, nlarge = 10000, prop.nonzero = 0.2, print.progress = TRUE) {
 
   # Save the arguments
   arguments <- match.call()
@@ -315,7 +348,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
   # Output the Kr results
   Kr.results <- build_K_matrix(data = data, radii = radii, use.K = use.K, homogeneous = homogeneous,
                                marked = marked, cell.type = cell.type, K.diff = K.diff, nlarge = nlarge,
-                               print.progress = print.progress)
+                               return.meta = TRUE, print.progress = print.progress)
 
   # Save
   Kr.df <- Kr.results$Kr.df
@@ -347,7 +380,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
       set.seed(seed)
 
       # For each subject ID, check whether there are multiple ROIs and count how many
-      Kr.df <-  Kr.df %>%
+      Kr.df <- Kr.df %>%
         dplyr::group_by(PID) %>%
         dplyr::mutate(multiple.ROI = any(duplicated(PID)),
                       number.ROI = n(),
@@ -366,10 +399,52 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
     # Take the mean of the L(r)s within each patient
     if (pick.roi == "average") {
 
-      Kr.df <-  Kr.df %>%
+      Kr.df <- Kr.df %>%
         dplyr::select(-id) %>%
         dplyr::group_by(PID) %>%
-        dplyr::summarise(dplyr::across(tidyselect::everything(), mean))
+        dplyr::summarise_at(vars(contains("radius")), list(~mean(.x)))
+
+    }
+
+    # Use the Baddeley average
+    if (pick.roi == "baddeley") {
+
+      Kr.df <- Kr.df %>%
+        dplyr::select(-id) %>%
+        dplyr::group_by(PID) %>%
+        dplyr::summarise_at(vars(contains("radius")), list(~spagg::baddeley.avg(K.vec = .x, n.vec = npoints)))
+
+    }
+
+    # Use the Diggle average
+    if (pick.roi == "diggle") {
+
+      Kr.df <- Kr.df %>%
+        dplyr::select(-id) %>%
+        dplyr::group_by(PID) %>%
+        dplyr::summarise_at(vars(contains("radius")), list(~spagg::diggle.avg(K.vec = .x, n.vec = npoints)))
+
+    }
+
+    # Use the Landau average
+    if (pick.roi == "landau") {
+
+      Kr.df <- Kr.df %>%
+        dplyr::select(-id) %>%
+        dplyr::group_by(PID) %>%
+        dplyr::summarise_at(vars(contains("radius")), list(~spagg::landau.avg(K.vec = .x, area.vec = area, n.vec = npoints)))
+
+    }
+
+    # Use custom function supplied by user
+    if (pick.roi == "custom") {
+
+      if (is.null(agg.func)) stop("Please supply an aggregation function using the agg.func argument.")
+
+      Kr.df <- Kr.df %>%
+        dplyr::select(-id) %>%
+        dplyr::group_by(PID) %>%
+        dplyr::summarise_at(vars(contains("radius")), list(~agg.func(.x)))
 
     }
   }
@@ -395,7 +470,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
   # Which columns (radii) meet this threshold?
   radii.to.save <- names(num.nonzero.Kr)[num.nonzero.Kr >= required.nonzero.Kr]
 
-  # Save the radii with the corresponding number
+  # Save the radii with the corresponding number (and remove metadata)
   if ("id" %in% colnames(Kr.df)) {
     Kr.df <- Kr.df[, c("PID", "id", radii.to.save)]
   }
@@ -450,7 +525,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
 
       if (model.type == "survival") {
         # Save the model equation
-        model.equation <- reformulate(c("ripley", adjustments), "Surv(get(outcome), get(censor))")
+        model.equation <- reformulate(c("ripley", adjustments), "survival::Surv(get(outcome), get(censor))")
 
         # Run the model
         res <- survival::coxph(model.equation, data = outcome.data, control = coxph.control(iter.max = 100))

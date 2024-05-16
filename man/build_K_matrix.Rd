@@ -13,6 +13,7 @@ build_K_matrix(
   cell.type,
   K.diff,
   nlarge = 10000,
+  return.meta = TRUE,
   print.progress = TRUE
 )
 }
@@ -47,6 +48,9 @@ Ripley's K or Besag's L. If \code{FALSE}, returns the empirical value of the spa
 \item{nlarge}{Parameter for the \code{Kest} and \code{Lest} function for efficiency. If there are more cells
 than \code{nlarge}, will apply a border correction for edge effects instead of the isotropic edge correction.
 Default is 10000.}
+
+\item{return.meta}{Boolean. Should meta-information (the area of the window and number of cells) be returned
+for each spatial summary computed?}
 
 \item{print.progress}{Boolean. Should progress in calculating the spatial summary across samples be printed?
 If \code{TRUE}, prints a progress bar.}
