@@ -36,6 +36,8 @@
 #' the \eqn{P} spatial summary values at each radius. \code{Kr.df} is the data.frame containing the spatial summaries
 #' in \code{Kr} but includes the PIDs and image ids.
 #'
+#' @import spatstat
+#' @import utils
 #' @importFrom magrittr %>%
 #' @importFrom tidyselect all_of
 #' @importFrom dplyr across
@@ -46,7 +48,7 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
   # Summarize the images within each PID
   pids.images <- data %>%
     dplyr::select(PID, id) %>%
-    distinct()
+    dplyr::distinct()
 
   # Save the unique image ids
   image.ids <- pids.images$id
@@ -130,11 +132,11 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
         if (use.K) {
 
           if (homogeneous) {
-            Ki <- Ki.type <- spatstat::Kest(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
+            Ki <- Ki.type <- spatstat.explore::Kest(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
           }
 
           if (!homogeneous) {
-            Ki <- Ki.type <-  spatstat::Kinhom(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
+            Ki <- Ki.type <-  spatstat.explore::Kinhom(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
           }
         }
 
@@ -142,11 +144,11 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
         if (!use.K) {
 
           if (homogeneous) {
-            Ki <- Ki.type <-  spatstat::Lest(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
+            Ki <- Ki.type <-  spatstat.explore::Lest(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
           }
 
           if (!homogeneous) {
-            Ki <- Ki.type <-  spatstat::Linhom(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
+            Ki <- Ki.type <-  spatstat.explore::Linhom(data.types.ppp.subset, r = radii, nlarge = nlarge, correction = "isotropic")
           }
 
         }
@@ -279,8 +281,12 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 #' \item{n.images.association}{How many images were used in the predictive model?}
 #' \item{arguments}{Returns the arguments specified in the function call.}
 #'
+#' @import spatstat
+#' @import utils
 #' @importFrom dplyr n
+#' @importFrom dplyr across
 #' @importFrom tidyselect all_of
+#' @importFrom tidyselect everything
 #' @importFrom dplyr across
 #' @importFrom survival coxph.control
 #' @importFrom magrittr %>%
@@ -363,7 +369,7 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
       Kr.df <-  Kr.df %>%
         dplyr::select(-id) %>%
         dplyr::group_by(PID) %>%
-        dplyr::summarise(across(everything(), mean))
+        dplyr::summarise(dplyr::across(tidyselect::everything(), mean))
 
     }
   }
