@@ -2,6 +2,7 @@
 
 export(build_K_matrix)
 export(spot)
+import(spagg)
 import(spatstat)
 import(utils)
 importFrom(dplyr,across)
