@@ -5,6 +5,8 @@
 This R package contains the code to perform the SPatial Omnibus Test (SPOT). SPOT takes a range of radii, starting with 0, calculates a spatial summary of the point locations 
 across images, and calculates an omnibus p-value describing the strength of association between the spatial summary and the outcome across radii. 
 
+For more information, see our bioRxiv pre-print: https://www.biorxiv.org/content/10.1101/2024.03.08.584117v1.abstract 
+
 ### Installation and Dependencies
 
 To install SPOT, run the following:
