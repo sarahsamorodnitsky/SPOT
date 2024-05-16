@@ -97,6 +97,7 @@ returns only the averaged spatial summaries or the summaries for the randomly-se
 \item{pids.images}{The PIDs and the corresponding image IDs within each patient. }
 \item{images.missing.cells}{How many images were missing cells altogether?}
 \item{n.images.association}{How many images were used in the predictive model?}
+\item{radii.to.save}{Which radii were used in testing?}
 \item{arguments}{Returns the arguments specified in the function call.}
 }
 \description{

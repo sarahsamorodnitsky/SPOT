@@ -311,6 +311,7 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
 #' \item{pids.images}{The PIDs and the corresponding image IDs within each patient. }
 #' \item{images.missing.cells}{How many images were missing cells altogether?}
 #' \item{n.images.association}{How many images were used in the predictive model?}
+#' \item{radii.to.save}{Which radii were used in testing?}
 #' \item{arguments}{Returns the arguments specified in the function call.}
 #'
 #' @import spatstat
@@ -488,10 +489,12 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
 
   # Test association for each radius (multiple ROIs per person)
   radii.to.save.numeric <- as.numeric(sapply(strsplit(radii.to.save, "radius."), function(i) i[2]))
-  pval.df <- data.frame(radius = radii.to.save.numeric, coef = NA, pval = NA)
 
-  # If we have enough images
-  if (n.images.association > 5) {
+  # If we have enough images and enough radii
+  if (n.images.association > 5 & length(radii.to.save.numeric) > 0) {
+
+    # Initialize data.frame to store results
+    pval.df <- data.frame(radius = radii.to.save.numeric, coef = NA, pval = NA)
 
     # Iterate through radii
     for (i in 1:length(radii.to.save)) {
@@ -548,20 +551,24 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
       pval.df$coef[i] <- coef[row.ind, col.inds[1]]
       pval.df$pval[i] <- coef[row.ind, col.inds[2]]
     }
-  }
 
-  # Remove any NA rows due to all the same value (not an issue after removing all 0 K(r) or L(r)s)
-  pval.df <- pval.df[!is.na(pval.df$pval),]
+    # Remove any NA rows due to all the same value (not an issue after removing all 0 K(r) or L(r)s)
+    pval.df <- pval.df[!is.na(pval.df$pval),]
 
-  # Initialize the overall p-values at NA
-  overall.pval <- NA
+    # Initialize the overall p-values at NA
+    overall.pval <- NA
 
-  # Combine results with and without rounding
-  if (!is.logical(pval.df$pval)) {
-    pval.df$pval.round <- pval.df$pval
+    # Combine results with and without rounding
+    if (!is.logical(pval.df$pval)) {
+      pval.df$pval.round <- pval.df$pval
 
-    # Combine results (no rounding)
-    overall.pval <- ACAT::ACAT(pval.df$pval)
+      # Combine results (no rounding)
+      overall.pval <- ACAT::ACAT(pval.df$pval)
+    }
+
+  } else {
+    overall.pval <- NA
+    pval.df <- NULL
   }
 
   # Return
@@ -571,5 +578,6 @@ spot <- function(data, radii, outcome, censor = NULL, model.type, use.K = TRUE,
        pids.images = pids.images,
        images.missing.cells = images.missing.cells,
        n.images.association = n.images.association,
+       radii.to.save = radii.to.save,
        arguments = arguments)
 }
