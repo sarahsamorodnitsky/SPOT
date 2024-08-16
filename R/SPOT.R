@@ -127,7 +127,7 @@ build_K_matrix <- function(data, radii, use.K, homogeneous, marked, cell.type, K
       # Convert to a ppp
       w <- spatstat.geom::convexhull.xy(data.types$x, data.types$y)
       data.types.ppp <- spatstat.geom::as.ppp(data.types, W = w)
-      marks(data.types.ppp) <- data.types$type
+      spatstat.geom::marks(data.types.ppp) <- data.types$type
 
       # Subset to specific cell type
       data.types.ppp.subset <- subset(data.types.ppp, marks %in% cell.type)
